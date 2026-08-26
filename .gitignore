@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Generated plot output figures
+*.png
+*.svg
+*.pdf
+
+# OS & Editor files
+.DS_Store
+__MACOSX/
+.vscode/
+.idea/
+
+# input and output files
+*.txt

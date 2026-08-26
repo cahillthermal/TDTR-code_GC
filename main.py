@@ -18,17 +18,18 @@ import tdtr
 
 
 def run_pipeline(
-    data_file: str = None,
+    data_file: str = r"C:\Users\d-cahill\OneDrive - University of Illinois - Urbana\Documents\Data\psec\2026\jul2506\9880_cen",
     time_min_ps: float = 100.0,
     time_max_ps: float = 3600.0,
-    fit_params_list: list = None,
-    Xguess_list: list = None,
+    fit_params_list: list = ('k3','k4'),  #layers are number 1,2,3,4...
+    Xguess_list: list = (0.1,2000),
     calc_sens: bool = False,
     calc_errors: bool = False,
     calc_corr: bool = False,
     phase_shift_deg: float = 0.0,
     autocorrect_phase: bool = True,
     save_plots: bool = True,
+    show_plots: bool = True,
 ):
     start_time = time.time()
     print("==================================================")
@@ -36,10 +37,10 @@ def run_pipeline(
     print("==================================================")
 
     # 1. Sample Setup
-    # Example stack: Al (1nm) / Al (19.1nm) / Interface (2nm) / Al (20.9nm) / Interface (1nm) / Substrate (430um)
-    lambda_val = [153.0, 153.0, 0.5, 153.0, 0.2, 35.0]  # W/m-K
-    C_val = [24.2e6, 2.42e6, 3.1e6, 2.42e6, 0.1e6, 3.1e6]  # J/m^3-K
-    t_val = [1.0e-9, 19.1e-9, 2.0e-9, 20.9e-9, 1.0e-9, 430.0e-6]  # m
+    # typical Example stack: Al abosprtion layer (1 nm) / Al (60 nm) / Interface (1 nm) / Substrate (1 mm)
+    lambda_val = [1500.0, 150.0, 0.1, 1000.0]  # W/m-K
+    C_val = [24.2e6, 2.42e6, 0.1e6, 1.8e6]  # J/m^3-K
+    t_val = [1.0e-9, 60e-9, 1.0e-9, 1e-3]  # m
     eta_val = [1.0] * len(lambda_val)
 
     sample = tdtr.Sample.from_arrays(
@@ -47,7 +48,7 @@ def run_pipeline(
         C_array=C_val,
         t_array=t_val,
         eta_array=eta_val,
-        names=["Al_top", "Al_1", "Interface_1", "Al_2", "Interface_2", "Substrate"],
+        names=["Al_top", "Al", "Interface", "Substrate"],
     )
 
     # 2. Experimental Setup
@@ -69,7 +70,7 @@ def run_pipeline(
         t_vec=sample.t_vec,
         eta_vec=sample.eta_vec,
         r=r_spot,
-        absorbance=0.12 * 1.08 * 0.8,
+        absorbance=0.12 * 0.9,
         A_tot_powermeter=(8.0 + 2 * 4.0) * 1e-3,
     )
     print(f"\nSteady-state temperature rise: dT_SS = {dT_ss:.2f} K")
@@ -121,9 +122,9 @@ def run_pipeline(
 
     # 5. Model Fitting
     if fit_params_list is None:
-        fit_params_list = ["k2", "k4"]
+        fit_params_list = ["k3", "k4"]
     if Xguess_list is None:
-        Xguess_list = [140.0, 30.0]
+        Xguess_list = [0.1, 140.0]
 
     print(f"\nRunning parameter fit for {fit_params_list}...")
     t_fit_start = time.time()
@@ -141,17 +142,18 @@ def run_pipeline(
         print(f"  {p_name} = {val:.4f}")
     print(f"  Residual sum Z = {fit_result.Z_min:.6e}")
 
-    if save_plots:
+    if save_plots or show_plots:
         tdtr.plot_fit_result(
             tdelay_data=tdelay_fit,
             ratio_data=ratio_fit_data,
             ratio_model=fit_result.ratio_model,
             sample=sample,
             title="TDTR Parameter Fit Result",
-            show=False,
-            save_path="tdtr_fit_result.png",
+            show=show_plots,
+            save_path="tdtr_fit_result.png" if save_plots else None,
         )
-        print("Saved 'tdtr_fit_result.png'")
+        if save_plots:
+            print("Saved 'tdtr_fit_result.png'")
 
     # 6. Optional: Sensitivity Calculation
     if calc_sens:
@@ -172,16 +174,17 @@ def run_pipeline(
             nnodes=exp_params.nnodes,
         )
         print(f"Sensitivities calculated in {time.time() - t_sens_start:.3f} s.")
-        if save_plots:
+        if save_plots or show_plots:
             tdtr.plot_sensitivities(
                 tdelay=tdelay_fit,
                 sensitivities=sens_dict,
-                params_to_plot=["k2", "k3", "k4", "k5", "t2", "r_pump"],
+                params_to_plot=["k2", "k3", "k4", "t2", "r_pump"],
                 title="TDTR Logarithmic Sensitivities",
-                show=False,
-                save_path="tdtr_sensitivities.png",
+                show=show_plots,
+                save_path="tdtr_sensitivities.png" if save_plots else None,
             )
-            print("Saved 'tdtr_sensitivities.png'")
+            if save_plots:
+                print("Saved 'tdtr_sensitivities.png'")
 
     # 7. Optional: Uncertainty Estimation
     if calc_errors:
@@ -217,46 +220,59 @@ def run_pipeline(
             scan_fraction=0.30,
             Nscan=15,
         )
-        if save_plots:
+        if save_plots or show_plots:
             tdtr.plot_correlation_scan(
                 scan_results=scan_results,
-                show=False,
-                save_path="tdtr_correlation_scan.png",
+                show=show_plots,
+                save_path="tdtr_correlation_scan.png" if save_plots else None,
             )
-            print("Saved 'tdtr_correlation_scan.png'")
+            if save_plots:
+                print("Saved 'tdtr_correlation_scan.png'")
 
     total_time = time.time() - start_time
-    print("==================================================")
-    print(f" Pipeline finished successfully in {total_time:.3f} s!")
-    print("==================================================")
+    # print("==================================================")
+    # print(f" Pipeline finished successfully in {total_time:.3f} s!")
+    # print("==================================================")
 
 
 def main():
     parser = argparse.ArgumentParser(description="TDTR Thermal Modeling and Data Analysis")
     parser.add_argument("-f", "--data-file", type=str, default=None, help="Path to experimental TDTR data file")
-    parser.add_argument("--tmin", type=float, default=100.0, help="Min delay time for fitting in ps (default 100.0)")
-    parser.add_argument("--tmax", type=float, default=3600.0, help="Max delay time for fitting in ps (default 3600.0)")
-    parser.add_argument("--fit-params", nargs="+", default=["k2", "k4"], help="Parameters to fit (e.g., k2 k4)")
-    parser.add_argument("--Xguess", nargs="+", type=float, default=[140.0, 30.0], help="Initial guesses for fit parameters")
+    parser.add_argument("--tmin", type=float, default=None, help="Min delay time for fitting in ps")
+    parser.add_argument("--tmax", type=float, default=None, help="Max delay time for fitting in ps")
+    parser.add_argument("--fit-params", nargs="+", default=None, help="Parameters to fit (e.g., k2 k4)")
+    parser.add_argument("--Xguess", nargs="+", type=float, default=None, help="Initial guesses for fit parameters")
     parser.add_argument("--calc-sens", action="store_true", help="Enable ratio sensitivity calculation & plot")
     parser.add_argument("--calc-errors", action="store_true", help="Enable errorbar / uncertainty estimation")
     parser.add_argument("--calc-corr", action="store_true", help="Enable 2D parameter correlation scan & plot")
-    parser.add_argument("--phase-shift-deg", type=float, default=0.0, help="Manual lock-in phase shift error angle (degrees)")
+    parser.add_argument("--phase-shift-deg", type=float, default=None, help="Manual lock-in phase shift error angle (degrees)")
     parser.add_argument("--no-autocorrect-phase", action="store_false", dest="autocorrect_phase", help="Disable automatic phase jump correction")
+    parser.add_argument("--no-show-plots", action="store_false", dest="show_plots", help="Disable displaying interactive plot windows")
 
     args = parser.parse_args()
 
+    kwargs = {}
+    if args.data_file is not None:
+        kwargs["data_file"] = args.data_file
+    if args.tmin is not None:
+        kwargs["time_min_ps"] = args.tmin
+    if args.tmax is not None:
+        kwargs["time_max_ps"] = args.tmax
+    if args.fit_params is not None:
+        kwargs["fit_params_list"] = args.fit_params
+    if args.Xguess is not None:
+        kwargs["Xguess_list"] = args.Xguess
+    if args.phase_shift_deg is not None:
+        kwargs["phase_shift_deg"] = args.phase_shift_deg
+    if not args.show_plots:
+        kwargs["show_plots"] = False
+
     run_pipeline(
-        data_file=args.data_file,
-        time_min_ps=args.tmin,
-        time_max_ps=args.tmax,
-        fit_params_list=args.fit_params,
-        Xguess_list=args.Xguess,
         calc_sens=args.calc_sens,
         calc_errors=args.calc_errors,
         calc_corr=args.calc_corr,
-        phase_shift_deg=args.phase_shift_deg,
         autocorrect_phase=args.autocorrect_phase,
+        **kwargs,
     )
 
 

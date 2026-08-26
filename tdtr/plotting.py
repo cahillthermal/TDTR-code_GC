@@ -33,26 +33,6 @@ def plot_fit_result(
     ax.grid(True, which="both", linestyle="--", alpha=0.5)
     ax.legend(fontsize=12, loc="best")
 
-    if sample is not None:
-        lambda_str = " ".join([f"{k:.3g}" for k in sample.lambda_vec])
-        C_str = " ".join([f"{c/1e6:.3g}" for c in sample.C_vec])
-        t_str = " ".join([f"{t*1e9:.3g}" for t in sample.t_vec])
-
-        annotation_text = (
-            f"$\\lambda = [{lambda_str}]$ W/m-K\n"
-            f"$C = [{C_str}] \\times 10^6$ J/m$^3$-K\n"
-            f"$t = [{t_str}]$ nm"
-        )
-        ax.text(
-            0.05,
-            0.95,
-            annotation_text,
-            transform=ax.transAxes,
-            fontsize=10,
-            verticalalignment="top",
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
-        )
-
     plt.tight_layout()
     if save_path:
         plt.savefig(save_path, dpi=300)

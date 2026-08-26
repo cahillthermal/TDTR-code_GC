@@ -101,13 +101,18 @@ def tdtr_temp(
             temp1 = AA * Bplus + BB * Bminus
             temp2 = BB * Bplus + AA * Bminus
 
-            expterm = np.exp(unminus * t_vec[n - 1])
+            arg = unminus * t_vec[n - 1]
+            real_arg = np.real(arg)
+            penetration_logic = real_arg > 100.0
+
+            # Prevent exp overflow warnings by clipping the real part of exponent
+            clipped_arg = np.clip(real_arg, -100.0, 100.0) + 1j * np.imag(arg)
+            expterm = np.exp(clipped_arg)
 
             Bplus = (0.5 / (gammanminus * expterm)) * temp1
             Bminus = (0.5 / gammanminus) * expterm * temp2
 
             # Numerical stability: set deep penetration to semi-infinite
-            penetration_logic = (t_vec[n - 1] * np.abs(unminus)) > 100.0
             Bplus[penetration_logic] = 0.0
             Bminus[penetration_logic] = 1.0
 
