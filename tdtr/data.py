@@ -26,6 +26,8 @@ class TDTRData:
         Vout: Phase and baseline corrected out-of-phase voltage.
         ratio: Experimental signal ratio -Vin / Vout.
         phase_angle: Applied phase correction angle (radians).
+        t_zero_shift: Applied time-zero shift (s).
+        acoustic_peak_ps: Detected acoustic echo peak position in ps (optional).
     """
     time_raw: np.ndarray
     time_exp: np.ndarray
@@ -35,6 +37,8 @@ class TDTRData:
     Vout: np.ndarray
     ratio: np.ndarray
     phase_angle: float
+    t_zero_shift: float = 0.0
+    acoustic_peak_ps: Optional[float] = None
 
 
 def phase_jump_metric(theta: float, Vin: np.ndarray, Vout: np.ndarray, time_exp: np.ndarray) -> float:
@@ -74,34 +78,40 @@ def phase_rotation(Vin: np.ndarray, Vout: np.ndarray, theta: float) -> Tuple[np.
 
 
 def auto_correct_phase(
-    time_exp: np.ndarray, Vin: np.ndarray, Vout: np.ndarray
+    time_exp: np.ndarray, Vin: np.ndarray, Vout: np.ndarray, max_iter: int = 3
 ) -> Tuple[np.ndarray, np.ndarray, float]:
     """
     Finds phase angle theta that minimizes phase jump across t=0, with outlier filtering.
     """
-    res1 = minimize_scalar(lambda th: phase_jump_metric(th, Vin, Vout, time_exp), bounds=(-0.5, 0.5), method='bounded')
-    theta = float(res1.x)
+    total_theta = 0.0
+    curr_Vin = Vin.copy()
+    curr_Vout = Vout.copy()
 
-    Vin_rot, Vout_rot = phase_rotation(Vin, Vout, theta)
+    res1 = minimize_scalar(lambda th: phase_jump_metric(th, curr_Vin, curr_Vout, time_exp), bounds=(-0.5, 0.5), method='bounded')
+    dth = float(res1.x)
+    total_theta += dth
+    curr_Vin, curr_Vout = phase_rotation(curr_Vin, curr_Vout, dth)
 
     # Identify zero crossing index
     abs_t = np.abs(time_exp)
     ii = int(np.argmin(abs_t))
 
-    if ii > 4 and 2 * ii <= len(Vout_rot):
-        std_val = float(np.std(Vout_rot[: max(1, ii - 4)]))
-        mean_val = float(np.mean(Vout_rot[: 2 * ii]))
+    for _ in range(max_iter - 1):
+        if ii > 4 and 2 * ii <= len(curr_Vout):
+            std_val = float(np.std(curr_Vout[: max(1, ii - 4)]))
+            mean_val = float(np.mean(curr_Vout[: 2 * ii]))
 
-        Vout_clean = Vout_rot.copy()
-        outliers = np.abs(Vout_clean[: 2 * ii] - mean_val) > 2.5 * std_val
-        Vout_clean[: 2 * ii][outliers] = mean_val
+            outliers = np.abs(curr_Vout[: 2 * ii] - mean_val) > 2.5 * std_val
+            curr_Vout[: 2 * ii][outliers] = mean_val
 
-        # Refine phase angle after outlier cleanup
-        res2 = minimize_scalar(lambda th: phase_jump_metric(th, Vin, Vout_clean, time_exp), bounds=(-0.5, 0.5), method='bounded')
-        theta = float(res2.x)
-        Vin_rot, Vout_rot = phase_rotation(Vin, Vout, theta)
+            # Refine phase angle after outlier cleanup
+            res = minimize_scalar(lambda th: phase_jump_metric(th, curr_Vin, curr_Vout, time_exp), bounds=(-0.5, 0.5), method='bounded')
+            dth = float(res.x)
+            total_theta += dth
+            curr_Vin, curr_Vout = phase_rotation(curr_Vin, curr_Vout, dth)
 
-    return Vin_rot, Vout_rot, theta
+    Vin_rot, Vout_rot = phase_rotation(Vin, Vout, total_theta)
+    return Vin_rot, Vout_rot, total_theta
 
 
 def correct_time_zero(
@@ -190,7 +200,7 @@ def read_exp_data(
         time_raw_sec = time_raw
 
     # 1. Time-zero correction
-    time_exp_shifted, _ = correct_time_zero(time_exp_sec, Vin_raw)
+    time_exp_shifted, t_half = correct_time_zero(time_exp_sec, Vin_raw)
 
     # 2. Lock-in Amplifier Phase Correction
     manual_rad = np.radians(phase_shift_deg)
@@ -205,6 +215,16 @@ def read_exp_data(
 
     ratio = -Vin_corr / Vout_corr
 
+    # 3. Acoustic Echo Peak Detection (default search window 20 - 30 ps)
+    acoustic_peak_ps = None
+    time_ps = time_exp_shifted * 1e12
+    if np.any((time_ps >= 15.0) & (time_ps <= 35.0)):
+        try:
+            echo_res = find_acoustic_peaks(time_ps, Vin_corr, fit_window_ps=(15.0, 35.0))
+            acoustic_peak_ps = echo_res["peak_time_ps"]
+        except Exception:
+            acoustic_peak_ps = None
+
     return TDTRData(
         time_raw=time_raw_sec,
         time_exp=time_exp_shifted,
@@ -214,6 +234,8 @@ def read_exp_data(
         Vout=Vout_corr,
         ratio=ratio,
         phase_angle=total_theta,
+        t_zero_shift=t_half,
+        acoustic_peak_ps=acoustic_peak_ps,
     )
 
 
@@ -265,7 +287,7 @@ def average_datasets(
 def find_acoustic_peaks(
     t_ps: np.ndarray,
     signal: np.ndarray,
-    fit_window_ps: Tuple[float, float] = (35.0, 55.0),
+    fit_window_ps: Tuple[float, float] = (20.0, 30.0),
     degree: int = 2,
 ) -> Dict[str, Union[np.ndarray, float]]:
     """
