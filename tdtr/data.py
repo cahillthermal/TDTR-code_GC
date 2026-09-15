@@ -215,7 +215,7 @@ def read_exp_data(
 
     ratio = -Vin_corr / Vout_corr
 
-    # 3. Acoustic Echo Peak Detection (default search window 20 - 30 ps)
+    # 3. Acoustic Echo Peak Detection (default search window 15 - 35 ps)
     acoustic_peak_ps = None
     time_ps = time_exp_shifted * 1e12
     if np.any((time_ps >= 15.0) & (time_ps <= 35.0)):
