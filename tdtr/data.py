@@ -6,9 +6,9 @@ outlier filtering, data range extraction, multi-dataset averaging, and acoustic 
 """
 
 from dataclasses import dataclass
-from typing import Tuple, List, Union, Optional
+from typing import Tuple, List, Union, Optional, Dict
 import numpy as np
-from scipy.optimize import minimize_scalar, minimize
+from scipy.optimize import minimize_scalar
 from scipy.interpolate import interp1d
 
 
@@ -139,10 +139,27 @@ def correct_time_zero(
     rising_Vin = Vin[: max(1, idx_peak + 1)]
     rising_time = time_exp[: max(1, idx_peak + 1)]
 
-    if len(rising_Vin) > 1:
-        # Interpolate rising edge to find exact t_half
-        interp_func = interp1d(rising_Vin, rising_time, kind='linear', fill_value='extrapolate')
-        t_half = float(interp_func(half_val))
+    if len(rising_Vin) > 1 and idx_peak > 0:
+        # Search backward from peak to locate the true rising edge crossing half_val
+        cross_idx = None
+        for i in range(idx_peak - 1, -1, -1):
+            if rising_Vin[i] <= half_val:
+                cross_idx = i
+                break
+
+        if cross_idx is not None:
+            v_low = float(rising_Vin[cross_idx])
+            v_high = float(rising_Vin[cross_idx + 1])
+            t_low = float(rising_time[cross_idx])
+            t_high = float(rising_time[cross_idx + 1])
+            denom = v_high - v_low
+            if abs(denom) > 1e-15:
+                frac = (half_val - v_low) / denom
+                t_half = t_low + frac * (t_high - t_low)
+            else:
+                t_half = t_low
+        else:
+            t_half = float(rising_time[0])
     else:
         t_half = float(rising_time[0])
 

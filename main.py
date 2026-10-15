@@ -18,13 +18,13 @@ import tdtr
 
 
 def run_pipeline(
-    data_path: str = r"C:\Users\david\OneDrive\Data\psec\2026\sep1426",
-    data_filename: str = "test.txt",
+    data_path: str = r"C:\Users\david\OneDrive\Data\psec\2026\oct1326",
+    data_filename: str = "636_top_e",
     data_file: str = None,
     time_min_ps: float = 100.0,
-    time_max_ps: float = 3600.0,
+    time_max_ps: float = 4000.0,
     fit_params_list: list = ('k3', 'k4'),  # layers are numbered 1,2,3,4...
-    Xguess_list: list = (0.1, 20),
+    Xguess_list: list = (0.1, 2000),
     calc_sens: bool = False,
     calc_errors: bool = False,
     calc_corr: bool = False,
@@ -58,10 +58,10 @@ def run_pipeline(
         file_tag = "synthetic"
 
     # 1. Sample Setup
-    # typical Example stack: Al abosprtion layer (1 nm) / Al (60 nm) / Interface (1 nm) / Substrate (1 mm)
-    lambda_val = [1500.0, 150.0, 0.15, 20.0, 142.0]  # W/m-K
-    C_val = [24.2e6, 2.42e6, 0.1e6, 1.8e6, 1.64e6]  # J/m^3-K
-    t_val = [1.0e-9, 71e-9, 1.0e-9, 1.2e-6, 1e-3]  # m
+    # typical Example stack: Al adsorption layer (1 nm) / Al (60 nm) / Interface (1 nm) / Substrate (1 mm)
+    lambda_val = [1500.0, 150.0, 0.11, 2300.0]  # W/m-K
+    C_val = [24.2e6, 2.42e6, 0.1e6, 1.8e6]  # J/m^3-K
+    t_val = [1.0e-9, 81e-9, 1.0e-9,  1e-3]  # m
     eta_val = [1.0] * len(lambda_val)
 
     sample = tdtr.Sample.from_arrays(
@@ -69,16 +69,17 @@ def run_pipeline(
         C_array=C_val,
         t_array=t_val,
         eta_array=eta_val,
-        names=["Al_top", "Al", "Interface", "Film", "Substrate"],
+     #   names=["Al_top", "Al", "Interface", "Film", "Substrate"],
+        names=["Al_top", "Al", "Interface", "Substrate"],
     )
 
     # 2. Experimental Setup
-    r_spot = 10.0e-6  # spot radius m
+    r_spot = 10e-6  # spot radius m
     exp_params = tdtr.ExperimentParams(
         r_pump=r_spot,
         r_probe=r_spot,
         f=9.3e6,  # 9.3 MHz
-        tau_rep=1.0 / 74.88e6,  # 74.88 MHz rep rate
+        tau_rep=1.0 / 74.86e6,  # 74.86 MHz rep rate
         A_pump=12e-3,  # 12 mW
         TCR=1e-4,
         nnodes=35,

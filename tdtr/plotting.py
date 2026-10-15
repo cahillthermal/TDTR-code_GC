@@ -17,6 +17,8 @@ def plot_fit_result(
     title: str = "TDTR Model Fit Result",
     save_path: Optional[str] = None,
     show: bool = True,
+    ylim: Optional[Tuple[float, float]] = (10.0, 80.0),
+    yscale: str = "log",
 ) -> Tuple[plt.Figure, plt.Axes]:
     """
     Plots experimental signal ratio data and fitted thermal model curve.
@@ -24,8 +26,15 @@ def plot_fit_result(
     t_ps = tdelay_data * 1e12 if np.max(tdelay_data) < 1e-3 else tdelay_data
 
     fig, ax = plt.subplots(figsize=(7, 5))
-    ax.semilogx(t_ps, ratio_data, 'ob', label="Experiment", markersize=5, fillstyle='none')
-    ax.semilogx(t_ps, ratio_model, 'r-', label="Model Fit", linewidth=2)
+    if yscale == "log":
+        ax.loglog(t_ps, ratio_data, 'ob', label="Experiment", markersize=5, fillstyle='none')
+        ax.loglog(t_ps, ratio_model, 'r-', label="Model Fit", linewidth=2)
+    else:
+        ax.semilogx(t_ps, ratio_data, 'ob', label="Experiment", markersize=5, fillstyle='none')
+        ax.semilogx(t_ps, ratio_model, 'r-', label="Model Fit", linewidth=2)
+
+    if ylim is not None:
+        ax.set_ylim(ylim)
 
     ax.set_xlabel("Time Delay (ps)", fontsize=14)
     ax.set_ylabel("$-V_{in} / V_{out}$", fontsize=14)

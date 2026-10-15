@@ -125,8 +125,8 @@ def apply_params_to_sample(
         elif p_type == 'r_probe':
             r_probe = val
 
-    # Maintain anisotropy ratio relative to original lambda_vec change
-    eta_vec = sample_base.eta_vec * sample_base.lambda_vec / lambda_vec
+    # Preserve anisotropy ratio eta = kx/kz as defined in sample_base
+    # eta_vec is already copied from sample_base.eta_vec.copy()
 
     updated_sample = Sample.from_arrays(
         lambda_array=lambda_vec,

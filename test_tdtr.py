@@ -86,6 +86,12 @@ def test_data_processing():
     time_exp_shifted, t_half = tdtr.correct_time_zero(time_raw, Vin_mixed)
     assert np.isfinite(t_half)
 
+    # Verify robustness against non-monotonic noisy rising edge
+    np.random.seed(42)
+    Vin_noisy = Vin_mixed + np.random.normal(0, 0.05, size=len(Vin_mixed))
+    time_noisy_shifted, t_half_noisy = tdtr.correct_time_zero(time_raw, Vin_noisy)
+    assert np.isfinite(t_half_noisy)
+
     Vin_corr, Vout_corr, theta_found = tdtr.auto_correct_phase(time_exp_shifted, Vin_mixed, Vout_mixed)
     assert np.isfinite(theta_found)
     assert len(Vin_corr) == len(time_raw)
